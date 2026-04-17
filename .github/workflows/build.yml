@@ -33,18 +33,22 @@ jobs:
         mkdir -p linux-x86/aarch64/aarch64-linux-android-4.9
         tar -xzf gcc.tar.gz -C linux-x86/aarch64/aarch64-linux-android-4.9
 
-    - name: Download Clang
+    - name: Setup Clang Toolchain
       run: |
-        mkdir -p toolchain/clang
-        cd toolchain/clang
-        wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/master/clang-r383902.tar.gz
-        tar -xzf clang-r383902.tar.gz
-        rm clang-r383902.tar.gz
+        git clone --depth=1 --filter=blob:none --sparse \
+        https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86 \
+        toolchain/clang-src
+        cd toolchain/clang-src
+        git sparse-checkout set clang-r383902b
+        cd ../..
+        mv toolchain/clang-src/clang-r383902b toolchain/clang
+        rm -rf toolchain/clang-src
+        toolchain/clang/bin/clang --version
     
     - name: Export environment variables
       run: |
         echo "CROSS_COMPILE=$(pwd)/toolchain/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin/aarch64-linux-androidkernel-" >> $GITHUB_ENV
-        echo "CC=$(pwd)/toolchain/clang/host/linux-x86/clang-r383902/bin/clang" >> $GITHUB_ENV
+        echo "CC=$(pwd)/toolchain/clang/host/linux-x86/clang-r383902b/bin/clang" >> $GITHUB_ENV
         echo "CLANG_TRIPLE=aarch64-linux-gnu-" >> $GITHUB_ENV
         echo "ARCH=arm64" >> $GITHUB_ENV
         echo "KCFLAGS=-w" >> $GITHUB_ENV
@@ -54,7 +58,7 @@ jobs:
       run: |
         make -C $(pwd) O=$(pwd)/out \
           KCFLAGS=-w CONFIG_SECTION_MISMATCH_WARN_ONLY=y \
-          a04_defconfig
+          a04_defconfig rsuntk.config
 
         make -C $(pwd) O=$(pwd)/out \
           KCFLAGS=-w CONFIG_SECTION_MISMATCH_WARN_ONLY=y \
