@@ -33,13 +33,14 @@ jobs:
         mkdir -p linux-x86/aarch64/aarch64-linux-android-4.9
         tar -xzf gcc.tar.gz -C linux-x86/aarch64/aarch64-linux-android-4.9
 
-    - name: Download Clang r383902
+    - name: Download Clang
       run: |
+        mkdir -p toolchain/clang
         cd toolchain/clang
-        wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/master/clang-r383902.tar.gz -O clang.tar.gz
-        mkdir -p host/linux-x86/clang-r383902
-        tar -xzf clang.tar.gz -C host/linux-x86/clang-r383902
-
+        wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/master/clang-r383902.tar.gz
+        tar -xzf clang-r383902.tar.gz
+        rm clang-r383902.tar.gz
+    
     - name: Export environment variables
       run: |
         echo "CROSS_COMPILE=$(pwd)/toolchain/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin/aarch64-linux-androidkernel-" >> $GITHUB_ENV
