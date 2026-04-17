@@ -32,12 +32,14 @@ jobs:
     - name: Setup Clang Toolchain
       run: |
         git clone --depth=1 --filter=blob:none --sparse \
-        https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86 \
-        toolchain/clang-src
+          -b master \
+          https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86 \
+          toolchain/clang-src
         cd toolchain/clang-src
         git sparse-checkout init --no-cone
         git sparse-checkout set clang-r383902b
         git checkout
+        ls -la
         cd ../..
         mv toolchain/clang-src/clang-r383902b toolchain/clang
         rm -rf toolchain/clang-src
