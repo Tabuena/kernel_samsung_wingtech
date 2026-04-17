@@ -1,12 +1,9 @@
 name: Build Kernel Samsung Wingtech (a04)
-
 on:
   workflow_dispatch:
-
 jobs:
   build:
-    runs-on: ubuntu-latest
-
+    runs-on: ubuntu-24.04
     steps:
     - name: Checkout source
       uses: actions/checkout@v4
@@ -26,29 +23,28 @@ jobs:
     - name: Prepare directories
       run: mkdir -p toolchain/gcc toolchain/clang
 
-    - name: Download GCC 4.9 toolchain
+    - name: Setup GCC Toolchain
       run: |
-        cd toolchain/gcc
-        wget https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/+archive/master.tar.gz -O gcc.tar.gz
-        mkdir -p linux-x86/aarch64/aarch64-linux-android-4.9
-        tar -xzf gcc.tar.gz -C linux-x86/aarch64/aarch64-linux-android-4.9
+        git clone --depth=1 --filter=blob:none \
+          https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 \
+          toolchain/gcc
 
     - name: Setup Clang Toolchain
       run: |
         git clone --depth=1 --filter=blob:none --sparse \
-        https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86 \
-        toolchain/clang-src
+          https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86 \
+          toolchain/clang-src
         cd toolchain/clang-src
         git sparse-checkout set clang-r383902b
         cd ../..
         mv toolchain/clang-src/clang-r383902b toolchain/clang
         rm -rf toolchain/clang-src
         toolchain/clang/bin/clang --version
-    
+
     - name: Export environment variables
       run: |
-        echo "CROSS_COMPILE=$(pwd)/toolchain/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin/aarch64-linux-androidkernel-" >> $GITHUB_ENV
-        echo "CC=$(pwd)/toolchain/clang/host/linux-x86/clang-r383902b/bin/clang" >> $GITHUB_ENV
+        echo "CROSS_COMPILE=$(pwd)/toolchain/gcc/bin/aarch64-linux-androidkernel-" >> $GITHUB_ENV
+        echo "CC=$(pwd)/toolchain/clang/bin/clang" >> $GITHUB_ENV
         echo "CLANG_TRIPLE=aarch64-linux-gnu-" >> $GITHUB_ENV
         echo "ARCH=arm64" >> $GITHUB_ENV
         echo "KCFLAGS=-w" >> $GITHUB_ENV
@@ -57,11 +53,20 @@ jobs:
     - name: Build kernel
       run: |
         make -C $(pwd) O=$(pwd)/out \
-          KCFLAGS=-w CONFIG_SECTION_MISMATCH_WARN_ONLY=y \
+          ARCH=arm64 \
+          CC=$(pwd)/toolchain/clang/bin/clang \
+          CROSS_COMPILE=$(pwd)/toolchain/gcc/bin/aarch64-linux-androidkernel- \
+          CLANG_TRIPLE=aarch64-linux-gnu- \
+          KCFLAGS=-w \
+          CONFIG_SECTION_MISMATCH_WARN_ONLY=y \
           a04_defconfig rsuntk.config
-
         make -C $(pwd) O=$(pwd)/out \
-          KCFLAGS=-w CONFIG_SECTION_MISMATCH_WARN_ONLY=y \
+          ARCH=arm64 \
+          CC=$(pwd)/toolchain/clang/bin/clang \
+          CROSS_COMPILE=$(pwd)/toolchain/gcc/bin/aarch64-linux-androidkernel- \
+          CLANG_TRIPLE=aarch64-linux-gnu- \
+          KCFLAGS=-w \
+          CONFIG_SECTION_MISMATCH_WARN_ONLY=y \
           -j$(nproc)
 
     - name: Copy Image to source tree
