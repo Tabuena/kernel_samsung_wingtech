@@ -32,10 +32,12 @@ jobs:
     - name: Setup Clang Toolchain
       run: |
         git clone --depth=1 --filter=blob:none --sparse \
-          https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86 \
-          toolchain/clang-src
+        https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86 \
+        toolchain/clang-src
         cd toolchain/clang-src
+        git sparse-checkout init --no-cone
         git sparse-checkout set clang-r383902b
+        git checkout
         cd ../..
         mv toolchain/clang-src/clang-r383902b toolchain/clang
         rm -rf toolchain/clang-src
@@ -59,7 +61,7 @@ jobs:
           CLANG_TRIPLE=aarch64-linux-gnu- \
           KCFLAGS=-w \
           CONFIG_SECTION_MISMATCH_WARN_ONLY=y \
-          a04_defconfig rsuntk.config
+          rsuntk-a04_defconfig rsuntk.config
         make -C $(pwd) O=$(pwd)/out \
           ARCH=arm64 \
           CC=$(pwd)/toolchain/clang/bin/clang \
