@@ -1,92 +1,80 @@
 name: Build Kernel Samsung Wingtech (a04)
+
 on:
-  workflow_dispatch:
+workflow_dispatch:
+
 jobs:
-  build:
-    runs-on: ubuntu-24.04
-    steps:
-    - name: Checkout source
-      uses: actions/checkout@v4
+build:
+runs-on: ubuntu-latest
 
-    - name: Integrate KernelSU-Next Latest
-      run: |
-        curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s legacy
+steps:
+- name: Checkout source
+uses: actions/checkout@v4
 
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          bc bison flex libssl-dev gcc g++ clang python3 \
-          libncurses5-dev ccache make git zip \
-          wget xz-utils
+- name: Integrate KernelSU-Next 1.1.1
+run: |
+       curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s legacy
 
-    - name: Prepare directories
-      run: mkdir -p toolchain/gcc toolchain/clang
+   - name: Install dependencies
+run: |
+       sudo apt-get update
+       sudo apt-get install -y \
+         bc bison flex libssl-dev gcc g++ clang python3 \
+         libncurses5-dev ccache make git zip \
+         wget xz-utils device-tree-compiler libfdt-dev
 
-    - name: Setup GCC Toolchain
-      run: |
-        git clone --depth=1 --filter=blob:none \
-          https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 \
-          toolchain/gcc
+   - name: Prepare directories
+run: mkdir -p toolchain/gcc toolchain/clang
 
-    - name: Setup Clang Toolchain
-      run: |
-        git clone --depth=1 --filter=blob:none --sparse \
-          -b master \
-          https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86 \
-          toolchain/clang-src
-        cd toolchain/clang-src
-        git sparse-checkout init --no-cone
-        git sparse-checkout set clang-r383902b
-        git checkout
-        ls -la
-        cd ../..
-        mv toolchain/clang-src/clang-r383902b toolchain/clang
-        rm -rf toolchain/clang-src
-        toolchain/clang/bin/clang --version
+- name: Download GCC 4.9 toolchain
+run: |
+       cd toolchain/gcc
+       wget https://github.com/ravindu644/Android-Kernel-Tutorials/releases/download/toolchains/arm-gnu-toolchain-14.2.rel1-x86_64-aarch64-none-linux-gnu.tar.xz -O gcc.tar.xf
+       tar -xf gcc.tar.xf -C ./
 
-    - name: Export environment variables
-      run: |
-        echo "CROSS_COMPILE=$(pwd)/toolchain/gcc/bin/aarch64-linux-androidkernel-" >> $GITHUB_ENV
-        echo "CC=$(pwd)/toolchain/clang/bin/clang" >> $GITHUB_ENV
-        echo "CLANG_TRIPLE=aarch64-linux-gnu-" >> $GITHUB_ENV
-        echo "ARCH=arm64" >> $GITHUB_ENV
-        echo "KCFLAGS=-w" >> $GITHUB_ENV
-        echo "CONFIG_SECTION_MISMATCH_WARN_ONLY=y" >> $GITHUB_ENV
+   - name: Download Clang r383902
+run: |
+       cd toolchain/clang
+       wget https://github.com/ravindu644/Android-Kernel-Tutorials/releases/download/toolchains/clang-r383902.tar.gz -O clang.tar.gz
+       mkdir -p host/linux-x86/clang-r383902
+       tar -xzf clang.tar.gz -C host/linux-x86/clang-r383902
 
-    - name: Build kernel
-      run: |
-        make -C $(pwd) O=$(pwd)/out \
-          ARCH=arm64 \
-          CC=$(pwd)/toolchain/clang/bin/clang \
-          CROSS_COMPILE=$(pwd)/toolchain/gcc/bin/aarch64-linux-androidkernel- \
-          CLANG_TRIPLE=aarch64-linux-gnu- \
-          KCFLAGS=-w \
-          CONFIG_SECTION_MISMATCH_WARN_ONLY=y \
-          rsuntk-a04_defconfig rsuntk.config
-        make -C $(pwd) O=$(pwd)/out \
-          ARCH=arm64 \
-          CC=$(pwd)/toolchain/clang/bin/clang \
-          CROSS_COMPILE=$(pwd)/toolchain/gcc/bin/aarch64-linux-androidkernel- \
-          CLANG_TRIPLE=aarch64-linux-gnu- \
-          KCFLAGS=-w \
-          CONFIG_SECTION_MISMATCH_WARN_ONLY=y \
-          -j$(nproc)
+   - name: Export environment variables
+run: |
+       echo "CROSS_COMPILE=$(pwd)/toolchain/gcc/arm-gnu-toolchain-14.2.rel1-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-" >> $GITHUB_ENV
+       echo "CC=$(pwd)/toolchain/clang/host/linux-x86/clang-r383902/bin/clang" >> $GITHUB_ENV
+       echo "CLANG_TRIPLE=aarch64-linux-gnu-" >> $GITHUB_ENV
+       echo "ARCH=arm64" >> $GITHUB_ENV
+       echo "KCFLAGS=-w" >> $GITHUB_ENV
+       echo "LD=$(pwd)/toolchain/gcc/arm-gnu-toolchain-14.2.rel1-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-ld" >> $GITHUB_ENV
+       echo "CONFIG_SECTION_MISMATCH_WARN_ONLY=y" >> $GITHUB_ENV
 
-    - name: Copy Image to source tree
-      run: |
-        cp out/arch/arm64/boot/Image arch/arm64/boot/Image || echo "Image not found!"
+   - name: Build kernel
+run: |
+       make -C $(pwd) O=$(pwd)/out \
+         KCFLAGS=-w CONFIG_SECTION_MISMATCH_WARN_ONLY=y \
+          LD=$(pwd)/toolchain/gcc/arm-gnu-toolchain-14.2.rel1-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-ld \
+         rsuntk-a04_defconfig rsuntk.config
 
-    - name: Archive output
-      run: |
-        cd out/arch/arm64/boot/
-        zip -r9 kernel.zip Image dtb* dtbo* 2>/dev/null || true
+       make -C $(pwd) O=$(pwd)/out \
+         KCFLAGS=-w CONFIG_SECTION_MISMATCH_WARN_ONLY=y \
+          LD=$(pwd)/toolchain/gcc/arm-gnu-toolchain-14.2.rel1-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-ld \
+         -j$(nproc)
 
-    - name: Upload kernel artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: built-kernel
-        path: |
-          out/arch/arm64/boot/Image
-          out/arch/arm64/boot/kernel.zip
-          .config
+   - name: Copy Image to source tree
+run: |
+       cp out/arch/arm64/boot/Image arch/arm64/boot/Image || echo "Image not found!"
+
+   - name: Archive output
+run: |
+       cd out/arch/arm64/boot/
+       zip -r9 kernel.zip Image dtb* dtbo* 2>/dev/null || true
+
+   - name: Upload kernel artifact
+uses: actions/upload-artifact@v4
+with:
+name: built-kernel
+path: |
+         out/arch/arm64/boot/Image
+         out/arch/arm64/boot/kernel.zip
+         .config
